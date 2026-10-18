@@ -6,6 +6,8 @@ pub enum DataKey {
     BountyCount,
     Bounty(BytesN<32>),
     Contributor(Address),
+    Admin,
+    MinReward(Address),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

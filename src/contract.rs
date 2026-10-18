@@ -1,7 +1,8 @@
 use soroban_sdk::{
-    contract, contractimpl, token::TokenClient, Address, BytesN, Env, Symbol,
+    contract, contractimpl, panic_with_error, token::TokenClient, Address, BytesN, Env, Symbol,
 };
 
+use crate::errors::Error;
 use crate::events;
 use crate::storage;
 use crate::types::{Bounty, Contributor};
@@ -31,6 +32,11 @@ impl MergeMintContract {
         reward_token: Address,
     ) -> BytesN<32> {
         creator.require_auth();
+
+        let min_reward = storage::get_min_reward(&env, &reward_token);
+        if reward_amount < min_reward {
+            panic_with_error(&env, Error::RewardBelowMinimum);
+        }
 
         let count = storage::get_bounty_count(&env);
         let id = generate_bounty_id(&env);
@@ -104,5 +110,28 @@ impl MergeMintContract {
 
     pub fn get_bounty_count(env: Env) -> u64 {
         storage::get_bounty_count(&env)
+    }
+
+    /// One-time admin bootstrap. Panics with `AdminAlreadyInitialized` if an
+    /// admin is already set.
+    pub fn init_admin(env: Env, admin: Address) {
+        if storage::get_admin(&env).is_some() {
+            panic_with_error(&env, Error::AdminAlreadyInitialized);
+        }
+        admin.require_auth();
+        storage::set_admin(&env, &admin);
+    }
+
+    /// Admin-only. Sets the minimum reward amount accepted by `create_bounty`
+    /// for `token`. Defaults to 0 (no minimum) until set.
+    pub fn set_min_reward(env: Env, admin: Address, token: Address, amount: i128) {
+        if let Err(e) = storage::require_admin(&env, &admin) {
+            panic_with_error(&env, e);
+        }
+        storage::set_min_reward(&env, &token, &amount);
+    }
+
+    pub fn get_min_reward(env: Env, token: Address) -> i128 {
+        storage::get_min_reward(&env, &token)
     }
 }
