@@ -13,6 +13,7 @@ pub enum DataKey {
     FeeBps,
     MinReputation,
     ClaimWindow,
+    Verifier,
 }
 
 /// Snapshot of contract-wide settings, returned by `get_config`.

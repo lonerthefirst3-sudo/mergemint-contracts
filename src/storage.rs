@@ -96,6 +96,14 @@ pub fn set_claim_window(env: &Env, claim_window: &u64) {
         .set(&DataKey::ClaimWindow, claim_window);
 }
 
+pub fn get_verifier(env: &Env) -> Option<Address> {
+    env.storage().persistent().get(&DataKey::Verifier)
+}
+
+pub fn set_verifier(env: &Env, verifier: &Address) {
+    env.storage().persistent().set(&DataKey::Verifier, verifier);
+}
+
 pub fn get_config(env: &Env) -> ContractConfig {
     ContractConfig {
         admin: get_admin(env),

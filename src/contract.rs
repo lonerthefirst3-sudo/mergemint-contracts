@@ -140,4 +140,82 @@ impl MergeMintContract {
     pub fn get_config(env: Env) -> ContractConfig {
         storage::get_config(&env)
     }
+
+    /// Admin-only. Pauses/unpauses mutating entrypoints and emits
+    /// `config_changed`.
+    pub fn set_paused(env: Env, admin: Address, paused: bool) {
+        if let Err(e) = storage::require_admin(&env, &admin) {
+            panic_with_error(&env, e);
+        }
+        let old = storage::get_paused(&env);
+        storage::set_paused(&env, &paused);
+        events::emit_config_changed_bool(&env, "paused", old, paused);
+    }
+
+    /// Admin-only. Sets the protocol fee in basis points and emits
+    /// `config_changed`.
+    pub fn set_fee_bps(env: Env, admin: Address, fee_bps: u32) {
+        if let Err(e) = storage::require_admin(&env, &admin) {
+            panic_with_error(&env, e);
+        }
+        let old = storage::get_fee_bps(&env);
+        storage::set_fee_bps(&env, &fee_bps);
+        events::emit_config_changed_u32(&env, "fee_bps", old, fee_bps);
+    }
+
+    /// Admin-only. Sets the minimum contributor reputation and emits
+    /// `config_changed`.
+    pub fn set_min_reputation(env: Env, admin: Address, min_reputation: u32) {
+        if let Err(e) = storage::require_admin(&env, &admin) {
+            panic_with_error(&env, e);
+        }
+        let old = storage::get_min_reputation(&env);
+        storage::set_min_reputation(&env, &min_reputation);
+        events::emit_config_changed_u32(&env, "min_reputation", old, min_reputation);
+    }
+
+    /// Admin-only. Sets the claim window (in ledger seconds) and emits
+    /// `config_changed`.
+    pub fn set_claim_window(env: Env, admin: Address, claim_window: u64) {
+        if let Err(e) = storage::require_admin(&env, &admin) {
+            panic_with_error(&env, e);
+        }
+        let old = storage::get_claim_window(&env);
+        storage::set_claim_window(&env, &claim_window);
+        events::emit_config_changed_u64(&env, "claim_window", old, claim_window);
+    }
+
+    /// Admin-only. Sets the verifier address and emits `config_changed`.
+    pub fn set_verifier(env: Env, admin: Address, verifier: Address) {
+        if let Err(e) = storage::require_admin(&env, &admin) {
+            panic_with_error(&env, e);
+        }
+        let old = storage::get_verifier(&env);
+        storage::set_verifier(&env, &verifier);
+        events::emit_config_changed_address(&env, "verifier", old, verifier);
+    }
+
+    /// Admin-only. Begins a two-step admin transfer by recording
+    /// `new_admin` as the pending admin. The transfer only completes once
+    /// `new_admin` calls `accept_admin`.
+    pub fn transfer_admin(env: Env, admin: Address, new_admin: Address) {
+        if let Err(e) = storage::require_admin(&env, &admin) {
+            panic_with_error(&env, e);
+        }
+        storage::set_pending_admin(&env, &new_admin);
+    }
+
+    /// Completes a pending admin transfer. Must be called by the pending
+    /// admin. Emits `config_changed` for the `admin` key.
+    pub fn accept_admin(env: Env, new_admin: Address) {
+        new_admin.require_auth();
+        let pending = storage::get_pending_admin(&env);
+        if pending.as_ref() != Some(&new_admin) {
+            panic_with_error(&env, Error::NotPendingOwner);
+        }
+        let old = storage::get_admin(&env);
+        storage::set_admin(&env, &new_admin);
+        storage::clear_pending_admin(&env);
+        events::emit_config_changed_address(&env, "admin", old, new_admin);
+    }
 }
