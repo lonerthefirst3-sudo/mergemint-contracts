@@ -5,7 +5,7 @@ use soroban_sdk::{
 use crate::errors::Error;
 use crate::events;
 use crate::storage;
-use crate::types::{Bounty, Contributor};
+use crate::types::{Bounty, ContractConfig, Contributor};
 
 const STATUS_OPEN: &str = "open";
 const STATUS_IN_PROGRESS: &str = "in_progress";
@@ -133,5 +133,11 @@ impl MergeMintContract {
 
     pub fn get_min_reward(env: Env, token: Address) -> i128 {
         storage::get_min_reward(&env, &token)
+    }
+
+    /// Read-only snapshot of contract-wide settings: admin, pending admin,
+    /// pause flag, fee bps, minimum reputation and claim window.
+    pub fn get_config(env: Env) -> ContractConfig {
+        storage::get_config(&env)
     }
 }
