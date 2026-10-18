@@ -1,4 +1,4 @@
-use soroban_sdk::{Address, BytesN, Env};
+use soroban_sdk::{Address, BytesN, Env, Vec};
 
 use crate::errors::Error;
 use crate::types::{Bounty, ContractConfig, Contributor, DataKey};
@@ -102,6 +102,34 @@ pub fn get_verifier(env: &Env) -> Option<Address> {
 
 pub fn set_verifier(env: &Env, verifier: &Address) {
     env.storage().persistent().set(&DataKey::Verifier, verifier);
+}
+
+pub fn get_creator_bounties(env: &Env, creator: &Address) -> Vec<BytesN<32>> {
+    env.storage()
+        .persistent()
+        .get(&DataKey::CreatorBounties(creator.clone()))
+        .unwrap_or(Vec::new(env))
+}
+
+pub fn add_creator_bounty(env: &Env, creator: &Address, id: &BytesN<32>) {
+    let mut list = get_creator_bounties(env, creator);
+    list.push_back(id.clone());
+    env.storage()
+        .persistent()
+        .set(&DataKey::CreatorBounties(creator.clone()), &list);
+}
+
+pub fn remove_creator_bounty(env: &Env, creator: &Address, id: &BytesN<32>) {
+    let list = get_creator_bounties(env, creator);
+    let mut new_list = Vec::new(env);
+    for existing in list.iter() {
+        if existing != *id {
+            new_list.push_back(existing);
+        }
+    }
+    env.storage()
+        .persistent()
+        .set(&DataKey::CreatorBounties(creator.clone()), &new_list);
 }
 
 pub fn get_config(env: &Env) -> ContractConfig {

@@ -14,6 +14,7 @@ pub enum DataKey {
     MinReputation,
     ClaimWindow,
     Verifier,
+    CreatorBounties(Address),
 }
 
 /// Snapshot of contract-wide settings, returned by `get_config`.
@@ -45,6 +46,9 @@ pub struct Bounty {
     pub reward_token: Address,
     pub assignee: Option<Address>,
     pub status: Symbol,
+    /// Address proposed to take over ownership of this bounty via
+    /// `transfer_bounty_ownership`, pending their acceptance.
+    pub pending_owner: Option<Address>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -1,5 +1,6 @@
 use soroban_sdk::{
     contract, contractimpl, panic_with_error, token::TokenClient, Address, BytesN, Env, Symbol,
+    Vec,
 };
 
 use crate::errors::Error;
@@ -49,10 +50,12 @@ impl MergeMintContract {
             reward_token,
             assignee: None,
             status: Symbol::new(&env, STATUS_OPEN),
+            pending_owner: None,
         };
 
         storage::store_bounty(&env, &id, &bounty);
         storage::set_bounty_count(&env, &(count + 1));
+        storage::add_creator_bounty(&env, &bounty.creator, &id);
 
         events::emit_bounty_created(&env, &id, &bounty.creator, &reward_amount);
         id
@@ -217,5 +220,59 @@ impl MergeMintContract {
         storage::set_admin(&env, &new_admin);
         storage::clear_pending_admin(&env);
         events::emit_config_changed_address(&env, "admin", old, new_admin);
+    }
+
+    /// Returns the ids of bounties currently owned (created, and not yet
+    /// transferred away from) `creator`.
+    pub fn get_creator_bounties(env: Env, creator: Address) -> Vec<BytesN<32>> {
+        storage::get_creator_bounties(&env, &creator)
+    }
+
+    /// Creator-only. Begins a two-step ownership transfer of `bounty_id` to
+    /// `new_owner`. `new_owner` must not already be the bounty's assignee.
+    /// The transfer only completes once `new_owner` calls
+    /// `accept_bounty_ownership`.
+    pub fn transfer_bounty_ownership(
+        env: Env,
+        creator: Address,
+        bounty_id: BytesN<32>,
+        new_owner: Address,
+    ) {
+        creator.require_auth();
+
+        let mut bounty = storage::get_bounty(&env, &bounty_id).expect("bounty not found");
+        if bounty.creator != creator {
+            panic!("only the bounty creator may transfer ownership");
+        }
+        if bounty.assignee.as_ref() == Some(&new_owner) {
+            panic_with_error(&env, Error::OwnerCannotBeAssignee);
+        }
+
+        bounty.pending_owner = Some(new_owner.clone());
+        storage::store_bounty(&env, &bounty_id, &bounty);
+
+        events::emit_ownership_transfer_started(&env, &bounty_id, &creator, &new_owner);
+    }
+
+    /// Completes a pending bounty ownership transfer. Must be called by the
+    /// pending owner. Updates the creator indexes used by
+    /// `get_creator_bounties` for both the previous and the new owner.
+    pub fn accept_bounty_ownership(env: Env, new_owner: Address, bounty_id: BytesN<32>) {
+        new_owner.require_auth();
+
+        let mut bounty = storage::get_bounty(&env, &bounty_id).expect("bounty not found");
+        if bounty.pending_owner.as_ref() != Some(&new_owner) {
+            panic_with_error(&env, Error::NotPendingOwner);
+        }
+
+        let previous_owner = bounty.creator.clone();
+        bounty.creator = new_owner.clone();
+        bounty.pending_owner = None;
+        storage::store_bounty(&env, &bounty_id, &bounty);
+
+        storage::remove_creator_bounty(&env, &previous_owner, &bounty_id);
+        storage::add_creator_bounty(&env, &new_owner, &bounty_id);
+
+        events::emit_ownership_transferred(&env, &bounty_id, &previous_owner, &new_owner);
     }
 }

@@ -22,6 +22,32 @@ pub fn emit_config_changed_u64(env: &Env, key: &str, old_value: u64, new_value: 
         .publish(config_changed_topic(env, key), (old_value, new_value));
 }
 
+pub fn emit_ownership_transfer_started(
+    env: &Env,
+    bounty_id: &BytesN<32>,
+    current_owner: &Address,
+    new_owner: &Address,
+) {
+    let topic = Symbol::new(env, "ownership_transfer_started");
+    env.events().publish(
+        (topic, current_owner.clone()),
+        (bounty_id.clone(), new_owner.clone()),
+    );
+}
+
+pub fn emit_ownership_transferred(
+    env: &Env,
+    bounty_id: &BytesN<32>,
+    previous_owner: &Address,
+    new_owner: &Address,
+) {
+    let topic = Symbol::new(env, "ownership_transferred");
+    env.events().publish(
+        (topic, new_owner.clone()),
+        (bounty_id.clone(), previous_owner.clone()),
+    );
+}
+
 pub fn emit_config_changed_address(
     env: &Env,
     key: &str,
